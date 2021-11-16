@@ -24,6 +24,14 @@ def main():
         return -1
         
     node = Node(host, port, self_port)
+
+    if node.sock == -1:
+        print('Failed to connect to socket')
+        return -1
+    elif node.peers == None:
+        print('Failed to get peers')
+        return -1
+
     node.listen()
 
 if __name__ == '__main__':

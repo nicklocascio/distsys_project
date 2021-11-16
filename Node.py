@@ -3,16 +3,26 @@
 import sys
 import json
 import socket
+from _thread import *
+import threading
 
 class Node():
     def __init__(self, host, port, self_port):
         self.self_port = self_port
         try:
             self.sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-            self.sock.bind(('0.0.0.0', self.self_port))
-            self.peers = self.connect(host, port)['PEERS']  
+            self.sock.bind(('0.0.0.0', self.self_port))  
         except:
             self.sock = -1
+
+        if self.sock != -1:
+            try:
+                self.peers = self.connect(host, port)['PEERS']
+            except:
+                print('issue getting peers')
+                self.peers = None
+        else:
+            self.peers = None
 
     def close(self):
         self.sock.shutdown(socket.SHUT_RDWR)
@@ -22,26 +32,20 @@ class Node():
         pass
 
     def listen(self):
-        while True:
-            bytesAddressPair = self.sock.recvfrom(1024)
+        bytesAddressPair = self.sock.recvfrom(1024)
 
-            message = bytesAddressPair[0]
+        enc_msg = bytesAddressPair[0]
+        msg = json.JSONDecoder().decode(enc_msg.decode('utf-8', 'strict'))
+        addr = bytesAddressPair[1]
 
-            address = bytesAddressPair[1]
-
-            clientMsg = "Message from Client:{}".format(message)
-            clientIP  = "Client IP Address:{}".format(address)
-    
-            print(clientMsg)
-            print(clientIP)
+        return (msg, addr)
 
     def broadcast(self):
-        msg = 'hello'
+        # Testing Mass Broadcast
+        msg = {'method':'BROADCAST_PEERS', 'PEERS': [word for word in 'love thee notre dame'.split(' ')]}
         enc_msg = json.JSONEncoder().encode(msg).encode('utf-8')
         for peer in self.peers:
             self.sock.sendto(enc_msg, tuple(peer))
-
-
 
 
     def connect(self, host, port):
