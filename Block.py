@@ -3,35 +3,29 @@ import datetime
 import hashlib
 
 class Block:
-    def __init__(self, index, transactions, prev_hash):
+    def __init__(self, index, prev_hash):
         self.index = index
-        self.transactions = transactions # this will probably end up being a list
+        self.transactions = [] 
         self.header = Header.Header(prev_hash)
 
     def add_transaction(self, txn):
-        '''
-        Need to figure out the format of a transaction, here are some initial thoughts:
+        self.transactions.append(txn)
 
-        {
-            "User": "Peer_Name",
-            "ID": ID,
-            "Amount": 35,
-            "Timestamp": ...,
-
-        }
-        '''
-        return
+        if len(self.transactions) > 10:
+            return "Full"
+        else:
+            return "Space"
 
     @staticmethod
-    def genesis_block(transactions):
-        return Block(0, transactions, "")
+    def genesis_block():
+        return Block(0, "")
 
     @staticmethod
-    def new_block(prev_block, transactions):
+    def new_block(prev_block):
         index = prev_block.index + 1
         prev_hash = prev_block.header.hash
 
-        return Block(index, transactions, prev_hash)
+        return Block(index, prev_hash)
 
     @staticmethod
     def mine(block):
@@ -44,7 +38,7 @@ class Block:
         # print(f"timestamp: {timestamp}")
 
         # by adding more zeros we can make this more difficult
-        target = 0x0000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        target = 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         # print(f"target: {target}")
 
         nonce = 0

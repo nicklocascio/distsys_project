@@ -7,14 +7,21 @@ def deploy_miners():
 
     return
 
-txn_list = []
 blockchain = []
 for i in range(3):
-    for j in range(6):
-        user = "peer " + str(j) # this will be a machine name or peer name or something
+
+    filling = True
+    if i == 0:
+        block = Block.genesis_block()
+    else:
+        block = Block.new_block(prev_block)
+
+    j = 0
+    while(filling):
+        user = "peer " + str(i)
         id = j
         amount = random.randint(0, 35000)
-        if random.randint(0, 1) == 0:
+        if random.randint(0,1) == 0:
             amount = amount * -1
         time = datetime.datetime.now()
 
@@ -25,25 +32,20 @@ for i in range(3):
             "Time": str(time)
         }
 
-        txn_list.append(txn)
+        status = block.add_transaction(txn)
 
-    # pprint.pprint(txn_list)
-    # print("\n")
+        if status == "Full":
+            Block.mine(block)
+            blockchain.append(block)
+            prev_block = block
+            filling = False
 
-    if i == 0:
-        prev_block = Block.genesis_block(txn_list)
-        Block.mine(prev_block)
-        blockchain.append(prev_block)
-    else:
-        new_block = Block.new_block(prev_block, txn_list)
-        Block.mine(new_block)
-        prev_block = new_block
-        blockchain.append(prev_block)
-
-    txn_list = []
+        j += 1
 
 for block in blockchain:
     print(f"Block ID: {block.index}")
+    # print("Transactions:")
+    # pprint.pprint(block.transactions)
     print(f"Prev Hash: {block.header.prev_hash}")
     print(f"Curr Hash: {block.header.hash}\n")
         
