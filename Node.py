@@ -42,7 +42,7 @@ class Node():
 
     def broadcast(self):
         # Testing Mass Broadcast
-        msg = {'method':'BROADCAST_PEERS', 'PEERS': [word for word in 'love thee notre dame'.split(' ')]}
+        msg = {'method':'BROADCAST_PEERS', 'PEERS': [peer for peer in self.peers]}
         enc_msg = json.JSONEncoder().encode(msg).encode('utf-8')
         for peer in self.peers:
             self.sock.sendto(enc_msg, tuple(peer))
