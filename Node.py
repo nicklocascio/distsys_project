@@ -43,6 +43,7 @@ class Node():
     def broadcast(self):
         # Testing Mass Broadcast
         msg = {'method':'BROADCAST_PEERS', 'PEERS': [peer for peer in self.peers]}
+        print(msg)
         enc_msg = json.JSONEncoder().encode(msg).encode('utf-8')
         for peer in self.peers:
             self.sock.sendto(enc_msg, tuple(peer))
@@ -50,9 +51,7 @@ class Node():
 
     def connect(self, host, port):
         req = {'method': 'CONNECT', 'HOST': socket.gethostname(), 'PORT': self.self_port}
-        print(req)
         enc_req = json.JSONEncoder().encode(req).encode(encoding='utf-8')
-        print(enc_req)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             sock.connect((str(host), int(port)))
@@ -72,7 +71,6 @@ class Node():
         
         msg = json.JSONDecoder().decode(enc_msg.decode('utf-8', 'strict'))
 
-        print(msg)
         return msg
 
 
