@@ -13,7 +13,7 @@ def main():
     listen_port = random.randint(9000, 10000)
     ip_addr = socket.gethostbyname(socket.gethostname())
     listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    listen_sock.connect(('student06.cse.nd.edu', 9554))
+    listen_sock.connect(('student06.cse.nd.edu', 9794))
     listen_sock.sendall('hello'.encode('utf-8'))
 
 if __name__ == "__main__":

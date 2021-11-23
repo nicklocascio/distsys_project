@@ -70,7 +70,6 @@ def listener(listen_sock, transaction_queue):
     while True:
         msg = listen_sock.recv(1024)
         msg = msg.decode('utf-8', 'strict')
-        print(msg)
         transaction_queue.put(msg)
 
 def main():
@@ -98,6 +97,11 @@ def main():
             msg = peers_queue.get()
             print(msg)
             peers_queue.task_done()
+        
+        if transaction_queue.qsize() > 0:
+            msg = transaction_queue.get()
+            print(msg)
+            transaction_queue.task_done()
 
 if __name__ == "__main__":
     main()
