@@ -38,6 +38,7 @@ def name_server(listen_port, ip_addr, peers_queue):
     # need to come up with catalog format
     while True:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as u:
+            
             # Register for Catalog
             u.bind(('0.0.0.0', 0))
             u.connect(('catalog.cse.nd.edu', 9097))
@@ -52,6 +53,7 @@ def name_server(listen_port, ip_addr, peers_queue):
             u.sendall(json.JSONEncoder().encode(ns_msg).encode(encoding='utf-8'))
 
             print('registered')
+
             # Get peers from the catalog
             r = requests.get('http://catalog.cse.nd.edu:9097/query.json')
             address_book = json.JSONDecoder().decode(r.text)
@@ -81,16 +83,15 @@ def main():
     peers_queue = Queue()
     transaction_queue = Queue()
 
-    # create name server thread
+    # Create name server thread
     name_server_thread = threading.Thread(target=name_server, daemon=True, args=([listen_port, ip_addr, peers_queue]))
     name_server_thread.start()
 
-    # create listening thread
+    # Create listening thread
     listener_thread = threading.Thread(target=listener, daemon=True, args=([listen_sock, transaction_queue]))
     listener_thread.start()
 
-    # main program loop to pull transactions from queue and work on mining
-
+    # Main program loop to pull transactions from queue and work on mining
     while True:
 
         if peers_queue.qsize() > 0:
