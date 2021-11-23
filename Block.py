@@ -29,10 +29,10 @@ class Block:
 
     @staticmethod
     def mine(block):
-        # print(f"Block ID: {block.index}")
-        # print(f"Transactions: {block.transactions}")
-        # print(f"Prev Hash: {block.header.prev_hash}")
-        # print(f"Curr Hash: {block.header.hash}\n")
+        print(f"Block ID: {block.index}")
+        print(f"Transactions: {block.transactions}")
+        print(f"Prev Hash: {block.header.prev_hash}")
+        print(f"Curr Hash: {block.header.hash}\n")
 
         timestamp = datetime.datetime.now()
         # print(f"timestamp: {timestamp}")
@@ -65,8 +65,8 @@ class Block:
                 # print("\n")
 
                 if int(hash, 16) < target:
-                    # print(f"\nfound valid hash with nonce {nonce}")
-                    # print(f"hash: {hash}")
+                    print(f"\nfound valid hash with nonce {nonce}")
+                    print(f"hash: {hash}")
                     
                     # update header appropriately
                     block.header.timestamp = timestamp
