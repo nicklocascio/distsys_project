@@ -30,10 +30,10 @@ class Block:
 
     @staticmethod
     def mine(block):
-        print(f"Block ID: {block.index}")
-        print(f"Transactions: {block.transactions}")
-        print(f"Prev Hash: {block.header.prev_hash}")
-        print(f"Curr Hash: {block.header.hash}\n")
+        # print(f"Block ID: {block.index}")
+        # print(f"Transactions: {block.transactions}")
+        # print(f"Prev Hash: {block.header.prev_hash}")
+        # print(f"Curr Hash: {block.header.hash}\n")
 
         timestamp = datetime.datetime.now()
         # print(f"timestamp: {timestamp}")
