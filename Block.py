@@ -1,3 +1,4 @@
+import time
 import Header
 import datetime
 import hashlib
@@ -75,12 +76,14 @@ class Block:
 
                     # done mining
                     mining = False
+                    break
 
                 nonce += 1
 
         # print(f"\n{block.header.timestamp}\nBlock: {block.index}'s hash is: {block.header.hash} from nonce: {block.header.nonce}")
 
         return
+
 
 # This is all just a sample to test things working
 # blockchain = [Block.genesis_block()]

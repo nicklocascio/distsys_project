@@ -43,17 +43,12 @@ NOTES ON TRANSACTIONS FOR WHEN WE ADD VERIFICATION
 
 '''
 
-def broadcast(broadcast_queue):
-    while True:
-        # Get peers and broadcast a message
-        if broadcast_queue.qsize() > 0:
-            peers = broadcast_queue.get()
-            broadcast_queue.task_done()
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as u:
-                u.bind(('0.0.0.0', 0))
-                for peer in peers:
-                    u.connect(peer)
-                    u.sendall('whats up my fellow workers'.encode('utf-8'))
+def broadcast(peers_list):
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as u:
+        u.bind(('0.0.0.0', 0))
+        for peer in peers_list:
+            u.connect(peer)
+            u.sendall('whats up my fellow workers'.encode('utf-8'))
 
 def name_server(listen_port, ip_addr, peers_queue):
     # need to come up with catalog format
@@ -95,7 +90,7 @@ def listener(listen_sock, transaction_queue):
         msg = msg.decode('utf-8', 'strict')
         # include a check for if msg is a block opposed to a transaction
 
-        
+
         transaction_queue.put(msg)
 
 def main():
@@ -108,7 +103,6 @@ def main():
     # Queues for resource sharing
     peers_queue = Queue()
     transaction_queue = Queue()
-    broadcast_queue = Queue()
 
     # Create name server thread
     name_server_thread = threading.Thread(target=name_server, daemon=True, args=([listen_port, ip_addr, peers_queue]))
@@ -129,8 +123,7 @@ def main():
             peers_list = peers_queue.get()
             print(peers_list)
             peers_queue.task_done()
-            broadcast_queue.put(peers_list)
-            broadcast(broadcast_queue)
+            # broadcast(peers_list) --> call this when we want to broadcast a block
         
         if transaction_queue.qsize() > 0:
             msg = transaction_queue.get()
@@ -143,25 +136,25 @@ def main():
             # Verify transaction before inserting into block - this might work
             # this wouldn't include sending to other users, but rather just 
             # adding and subtracting money, which does illustrate the general concept
-            txn_ledger = {}
-            for block in blockchain:
-                for transaction in block.transactions:
-                    amount = transaction["Amount"]
-                    if amount < 0:
-                        try:
-                            new_amount = txn_ledger[transaction["User"]] - amount
-                            if new_amount < 0:
-                                # throw out transaction, results in negative balance
-                                continue
-                            else:
-                                txn_ledger[transaction["User"]] = new_amount
-                        except Exception:
-                            continue
-                    else:
-                        try:
-                            txn_ledger[transaction["User"]] += amount
-                        except Exception:
-                            txn_ledger[transaction["User"]] = amount
+            # txn_ledger = {}
+            # for block in blockchain:
+            #     for transaction in block.transactions:
+            #         amount = transaction["Amount"]
+            #         if amount < 0:
+            #             try:
+            #                 new_amount = txn_ledger[transaction["User"]] - amount
+            #                 if new_amount < 0:
+            #                     # throw out transaction, results in negative balance
+            #                     continue
+            #                 else:
+            #                     txn_ledger[transaction["User"]] = new_amount
+            #             except Exception:
+            #                 continue
+            #         else:
+            #             try:
+            #                 txn_ledger[transaction["User"]] += amount
+            #             except Exception:
+            #                 txn_ledger[transaction["User"]] = amount
 
 
             # Insert verified transaction into block and check if we need to mine
