@@ -48,7 +48,7 @@ def main():
             peers_queue.task_done()
 
         broadcast(peers_list)
-        time.sleep(2)
+        time.sleep(1)
 
 if __name__ == "__main__":
     main()

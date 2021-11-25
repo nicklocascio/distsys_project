@@ -8,6 +8,8 @@ import random
 import json
 import requests
 from queue import Queue
+
+from requests.api import head
 from Block import Block
 
 from User import broadcast
@@ -43,12 +45,14 @@ NOTES ON TRANSACTIONS FOR WHEN WE ADD VERIFICATION
 
 '''
 
-def broadcast(peers_list):
+def broadcast(peers_list, msg):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as u:
         u.bind(('0.0.0.0', 0))
         for peer in peers_list:
-            u.connect(peer)
-            u.sendall('whats up my fellow workers'.encode('utf-8'))
+            # conditional so we don't send to ourselves
+            if socket.gethostbyname(peer[0]) != socket.gethostbyname(socket.gethostname()):
+                u.connect(peer)
+                u.sendall(msg.encode('utf-8'))
 
 def name_server(listen_port, ip_addr, peers_queue):
     # need to come up with catalog format
@@ -88,8 +92,34 @@ def listener(listen_sock, transaction_queue):
     while True:
         msg = listen_sock.recv(1024)
         msg = msg.decode('utf-8', 'strict')
-        # include a check for if msg is a block opposed to a transaction
 
+        # include a check for if msg is a block opposed to a transaction
+        try:
+            msg = json.loads(msg)
+            if msg["Type"] == "BLOCK":                
+                # Parse data from message to build block
+                block_data = msg["Block"]
+                block_index = block_data["index"]
+                block_transactions = block_data["transactions"]
+                block_header = block_data["header"]
+
+                block = Block(block_index, block_header["prev_hash"])
+                block.transactions = block_transactions
+                block.header.hash = block_header["hash"]
+                block.header.timestamp = block_header["timestamp"]
+                block.header.nonce = block_header["nonce"]
+
+                print('\nReceived Block:')
+                print('Index: {}'.format(block.index))
+                print('Transactions: {}'.format(block.transactions))
+                print('Prev Hash: {}'.format(block.header.prev_hash))
+                print('Hash: {}'.format(block.header.hash))
+                print('Timestamp: {}'.format(block.header.timestamp))
+                print('Nonce: {}\n'.format(block.header.nonce))
+
+                continue
+        except Exception:
+            None
 
         transaction_queue.put(msg)
 
@@ -112,7 +142,8 @@ def main():
     listener_thread = threading.Thread(target=listener, daemon=True, args=([listen_sock, transaction_queue]))
     listener_thread.start()
 
-    # Initialize blockchain list
+    # Initialize peers and blockchain lists
+    peers_list = []
     blockchain = []
     curr_block = Block.genesis_block()
 
@@ -160,8 +191,28 @@ def main():
             # Insert verified transaction into block and check if we need to mine
             status = curr_block.add_transaction(msg)
             if status == "Full":
+                # Mine block
                 Block.mine(curr_block)
-                # broadcast block to other peers
+                
+                # Broadcast block to other peers
+                msg = {
+                    "Type": "BLOCK",
+                    "Block": {
+                        "index": curr_block.index,
+                        "transactions": curr_block.transactions,
+                        "header": {
+                            "prev_hash": curr_block.header.prev_hash,
+                            "hash": curr_block.header.hash,
+                            "timestamp": str(curr_block.header.timestamp),
+                            "nonce": curr_block.header.nonce
+                        }
+                    }
+                }
+                msg = json.dumps(msg)
+                # print('msg to broadcast: {}'.format(msg))
+                broadcast(peers_list, msg)
+
+                # Add to blockchain and create new block
                 blockchain.append(curr_block)
                 prev_block = curr_block
                 curr_block = Block.new_block(prev_block)
