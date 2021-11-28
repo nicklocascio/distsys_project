@@ -1,6 +1,5 @@
-import pickle
 import socket
-import sys
+import datetime
 import threading
 import time
 import queue
@@ -9,11 +8,27 @@ import json
 import requests
 
 def broadcast(peers_list):
+    user = socket.gethostname()
+    amount = random.randint(0, 35000)
+    if random.randint(0,1) == 0:
+        amount = amount * -1
+    time = datetime.datetime.now()
+
+    msg = {
+        "Type": "TXN",
+        "Txn": {
+            "User": user,
+            "Amount": amount,
+            "Time": str(time)
+        }
+    }
+    msg = json.dumps(msg)
+
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as u:
         u.bind(('0.0.0.0', 0))
         for peer in peers_list:
             u.connect(peer)
-            u.sendall('hello'.encode('utf-8'))
+            u.sendall(msg.encode('utf-8'))
         
 
 def get_peers(peers_queue):

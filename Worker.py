@@ -90,12 +90,12 @@ def name_server(listen_port, ip_addr, peers_queue):
 
 def listener(listen_sock, transaction_queue):
     while True:
-        msg = listen_sock.recv(1024)
+        msg = listen_sock.recv(4096)
         msg = msg.decode('utf-8', 'strict')
+        msg = json.loads(msg)
 
         # include a check for if msg is a block opposed to a transaction
         try:
-            msg = json.loads(msg)
             if msg["Type"] == "BLOCK":                
                 # Parse data from message to build block
                 block_data = msg["Block"]
@@ -116,12 +116,11 @@ def listener(listen_sock, transaction_queue):
                 print('Hash: {}'.format(block.header.hash))
                 print('Timestamp: {}'.format(block.header.timestamp))
                 print('Nonce: {}\n'.format(block.header.nonce))
-
                 continue
+            elif msg["Type"] == "TXN":
+                transaction_queue.put(msg["Txn"])
         except Exception:
             None
-
-        transaction_queue.put(msg)
 
 def main():
     # create socket for listening to register with name server

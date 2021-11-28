@@ -12,7 +12,7 @@ class Block:
     def add_transaction(self, txn):
         self.transactions.append(txn)
 
-        if len(self.transactions) > 10:
+        if len(self.transactions) >= 10:
             return "Full"
         else:
             return "Space"
