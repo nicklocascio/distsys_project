@@ -1,19 +1,11 @@
-import pickle
 import socket
-import sys
 import threading
 import time
-import queue
 import random
 import json
 import requests
 from queue import Queue
-
-from requests.api import head
 from Block import Block
-
-from User import broadcast
-
 
 '''
 How I think this system needs to work after comments and class discussion
@@ -141,8 +133,9 @@ def main():
     listener_thread = threading.Thread(target=listener, daemon=True, args=([listen_sock, transaction_queue]))
     listener_thread.start()
 
-    # Initialize peers and blockchain lists
+    # Initialize peers and blockchain lists and transaction ledger
     peers_list = []
+    txn_ledger = {}
     blockchain = []
     curr_block = Block.genesis_block()
 
@@ -160,61 +153,61 @@ def main():
             print(msg)
             transaction_queue.task_done()
 
-            # this message is what we will insert into block and also can add the verification step here
-            # Might need some logic to parse transaction - similar to client logic
+            # Verify transaction before inserting into block - this is only local verification with respect to what worker knows
+            amount = msg["Amount"]
+            verified = False
+            # "withdrawal"
+            if amount < 0:
+                try:
+                    user_balance = txn_ledger[msg["User"]]
+                    if user_balance + amount < 0:
+                        print('txn results in balance of {}, discarding'.format(user_balance + amount))
+                    else:
+                        txn_ledger[msg["User"]] = user_balance + amount
+                        verified = True
+                except Exception:
+                    print('new user withdrawing right away, not valid')
+            # "deposit"
+            else:
+                try:
+                    txn_ledger[msg["User"]] = txn_ledger[msg["User"]] + amount
+                    verified = True
+                except Exception:
+                    print('adding new user: {}'.format(msg["User"]))
+                    txn_ledger[msg["User"]] = amount
+                    verified = True
 
-            # Verify transaction before inserting into block - this might work
-            # this wouldn't include sending to other users, but rather just 
-            # adding and subtracting money, which does illustrate the general concept
-            # txn_ledger = {}
-            # for block in blockchain:
-            #     for transaction in block.transactions:
-            #         amount = transaction["Amount"]
-            #         if amount < 0:
-            #             try:
-            #                 new_amount = txn_ledger[transaction["User"]] - amount
-            #                 if new_amount < 0:
-            #                     # throw out transaction, results in negative balance
-            #                     continue
-            #                 else:
-            #                     txn_ledger[transaction["User"]] = new_amount
-            #             except Exception:
-            #                 continue
-            #         else:
-            #             try:
-            #                 txn_ledger[transaction["User"]] += amount
-            #             except Exception:
-            #                 txn_ledger[transaction["User"]] = amount
-
+            print('\ntxn ledger: {}\n'.format(txn_ledger))
 
             # Insert verified transaction into block and check if we need to mine
-            status = curr_block.add_transaction(msg)
-            if status == "Full":
-                # Mine block
-                Block.mine(curr_block)
-                
-                # Broadcast block to other peers
-                msg = {
-                    "Type": "BLOCK",
-                    "Block": {
-                        "index": curr_block.index,
-                        "transactions": curr_block.transactions,
-                        "header": {
-                            "prev_hash": curr_block.header.prev_hash,
-                            "hash": curr_block.header.hash,
-                            "timestamp": str(curr_block.header.timestamp),
-                            "nonce": curr_block.header.nonce
+            if verified:
+                status = curr_block.add_transaction(msg)
+                if status == "Full":
+                    # Mine block
+                    Block.mine(curr_block)
+                    
+                    # Broadcast block to other peers
+                    msg = {
+                        "Type": "BLOCK",
+                        "Block": {
+                            "index": curr_block.index,
+                            "transactions": curr_block.transactions,
+                            "header": {
+                                "prev_hash": curr_block.header.prev_hash,
+                                "hash": curr_block.header.hash,
+                                "timestamp": str(curr_block.header.timestamp),
+                                "nonce": curr_block.header.nonce
+                            }
                         }
                     }
-                }
-                msg = json.dumps(msg)
-                # print('msg to broadcast: {}'.format(msg))
-                broadcast(peers_list, msg)
+                    msg = json.dumps(msg)
+                    # print('msg to broadcast: {}'.format(msg))
+                    broadcast(peers_list, msg)
 
-                # Add to blockchain and create new block
-                blockchain.append(curr_block)
-                prev_block = curr_block
-                curr_block = Block.new_block(prev_block)
+                    # Add to blockchain and create new block
+                    blockchain.append(curr_block)
+                    prev_block = curr_block
+                    curr_block = Block.new_block(prev_block)
 
 if __name__ == "__main__":
     main()
