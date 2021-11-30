@@ -39,12 +39,12 @@ class Block:
         # print(f"timestamp: {timestamp}")
 
         # by adding more zeros we can make this more difficult
-        target = 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        target = 0x00000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         # print(f"target: {target}")
 
         nonce = 0
         hash = ""
-        max_nonce = 1000 # this is true value, smaller for testing: 4294967295
+        max_nonce = 4294967295 # this is true value, smaller for testing: 4294967295
 
         mining = True
         while(mining):
