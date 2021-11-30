@@ -149,8 +149,8 @@ def main():
         
         if blocks_queue.qsize() > 0:
             worker, block = blocks_queue.get()
-            print('Block from worker: {}'.format(worker))
-            print('\nReceived Block:')
+            print('\nBlock from worker: {}'.format(worker))
+            print('Received Block:')
             print('Index: {}'.format(block.index))
             print('Transactions: {}'.format(block.transactions))
             print('Prev Hash: {}'.format(block.header.prev_hash))
