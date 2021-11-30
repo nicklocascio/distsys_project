@@ -4,6 +4,7 @@ import time
 import random
 import json
 import requests
+import pprint
 from queue import Queue
 from Block import Block
 
@@ -80,7 +81,7 @@ def name_server(listen_port, ip_addr, peers_queue):
 
         time.sleep(10)
 
-def listener(listen_sock, transaction_queue):
+def listener(listen_sock, transaction_queue, blocks_queue):
     while True:
         msg = listen_sock.recv(4096)
         msg = msg.decode('utf-8', 'strict')
@@ -101,13 +102,7 @@ def listener(listen_sock, transaction_queue):
                 block.header.timestamp = block_header["timestamp"]
                 block.header.nonce = block_header["nonce"]
 
-                print('\nReceived Block:')
-                print('Index: {}'.format(block.index))
-                print('Transactions: {}'.format(block.transactions))
-                print('Prev Hash: {}'.format(block.header.prev_hash))
-                print('Hash: {}'.format(block.header.hash))
-                print('Timestamp: {}'.format(block.header.timestamp))
-                print('Nonce: {}\n'.format(block.header.nonce))
+                blocks_queue.put((msg["Worker"], block))
                 continue
             elif msg["Type"] == "TXN":
                 transaction_queue.put(msg["Txn"])
@@ -124,19 +119,23 @@ def main():
     # Queues for resource sharing
     peers_queue = Queue()
     transaction_queue = Queue()
+    blocks_queue = Queue()
 
     # Create name server thread
     name_server_thread = threading.Thread(target=name_server, daemon=True, args=([listen_port, ip_addr, peers_queue]))
     name_server_thread.start()
 
     # Create listening thread
-    listener_thread = threading.Thread(target=listener, daemon=True, args=([listen_sock, transaction_queue]))
+    listener_thread = threading.Thread(target=listener, daemon=True, args=([listen_sock, transaction_queue, blocks_queue]))
     listener_thread.start()
 
     # Initialize peers and blockchain lists and transaction ledger
     peers_list = []
     txn_ledger = {}
-    blockchain = []
+    local_blockchain = []
+    chains = {
+        "local": local_blockchain
+    }
     curr_block = Block.genesis_block()
 
     # Main program loop to pull transactions from queue and work on mining
@@ -148,6 +147,24 @@ def main():
             peers_queue.task_done()
             # broadcast(peers_list) --> call this when we want to broadcast a block
         
+        if blocks_queue.qsize() > 0:
+            worker, block = blocks_queue.get()
+            print('Block from worker: {}'.format(worker))
+            print('\nReceived Block:')
+            print('Index: {}'.format(block.index))
+            print('Transactions: {}'.format(block.transactions))
+            print('Prev Hash: {}'.format(block.header.prev_hash))
+            print('Hash: {}'.format(block.header.hash))
+            print('Timestamp: {}'.format(block.header.timestamp))
+            print('Nonce: {}\n'.format(block.header.nonce))
+            
+            try:
+                chains[worker].append(block)
+            except Exception:
+                chains[worker] = [block]
+            
+            pprint.pprint(chains)
+
         if transaction_queue.qsize() > 0:
             msg = transaction_queue.get()
             print(msg)
@@ -177,7 +194,7 @@ def main():
                     txn_ledger[msg["User"]] = amount
                     verified = True
 
-            print('\ntxn ledger: {}\n'.format(txn_ledger))
+            # print('\ntxn ledger: {}\n'.format(txn_ledger))
 
             # Insert verified transaction into block and check if we need to mine
             if verified:
@@ -189,6 +206,7 @@ def main():
                     # Broadcast block to other peers
                     msg = {
                         "Type": "BLOCK",
+                        "Worker": socket.gethostname(),
                         "Block": {
                             "index": curr_block.index,
                             "transactions": curr_block.transactions,
@@ -205,9 +223,11 @@ def main():
                     broadcast(peers_list, msg)
 
                     # Add to blockchain and create new block
-                    blockchain.append(curr_block)
+                    local_blockchain.append(curr_block)
+                    chains["local"] = local_blockchain
                     prev_block = curr_block
                     curr_block = Block.new_block(prev_block)
+
 
 if __name__ == "__main__":
     main()
