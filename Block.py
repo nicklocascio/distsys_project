@@ -1,3 +1,4 @@
+from os import stat
 import time
 import Header
 import datetime
@@ -16,6 +17,15 @@ class Block:
             return "Full"
         else:
             return "Space"
+
+    @staticmethod
+    def print(block):
+        print('Index: {}'.format(block.index))
+        # print('Transactions: {}'.format(block.transactions))
+        print('Prev Hash: {}'.format(block.header.prev_hash))
+        print('Hash: {}'.format(block.header.hash))
+        print('Timestamp: {}'.format(block.header.timestamp))
+        print('Nonce: {}\n'.format(block.header.nonce))
 
     @staticmethod
     def genesis_block():
@@ -67,7 +77,7 @@ class Block:
 
                 if int(hash, 16) < target:
                     print(f"\nfound valid hash with nonce {nonce}")
-                    print(f"hash: {hash}")
+                    print(f"hash: {hash}\n")
                     
                     # update header appropriately
                     block.header.timestamp = timestamp

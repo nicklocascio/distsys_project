@@ -5,6 +5,7 @@ import random
 import json
 import requests
 import pprint
+import multiprocessing
 from queue import Queue
 from Block import Block
 
@@ -56,7 +57,7 @@ def name_server(listen_port, ip_addr, peers_queue):
             u.bind(('0.0.0.0', 0))
             u.connect(('catalog.cse.nd.edu', 9097))
             ns_msg = {
-                'type' : 'hashtable',
+                'type' : 'worker',
                 'owner' : 'jbigej',
                 'port' : listen_port,
                 'address' : ip_addr,
@@ -65,7 +66,7 @@ def name_server(listen_port, ip_addr, peers_queue):
 
             u.sendall(json.JSONEncoder().encode(ns_msg).encode(encoding='utf-8'))
 
-            print('registered')
+            # print('registered')
 
             # Get peers from the catalog
             r = requests.get('http://catalog.cse.nd.edu:9097/query.json')
@@ -81,7 +82,7 @@ def name_server(listen_port, ip_addr, peers_queue):
 
         time.sleep(10)
 
-def listener(listen_sock, transaction_queue, blocks_queue):
+def listener(listen_sock, transaction_queue, received_blocks_queue, process_queue):
     while True:
         msg = listen_sock.recv(4096)
         msg = msg.decode('utf-8', 'strict')
@@ -102,12 +103,23 @@ def listener(listen_sock, transaction_queue, blocks_queue):
                 block.header.timestamp = block_header["timestamp"]
                 block.header.nonce = block_header["nonce"]
 
-                blocks_queue.put((msg["Worker"], block))
+                received_blocks_queue.put((msg["Worker"], block))
+
+                # if process_queue.qsize() > 0:
+                #     process = process_queue.get()
+                #     process.terminate()
+                #     process_queue.task_done()
+
                 continue
             elif msg["Type"] == "TXN":
                 transaction_queue.put(msg["Txn"])
         except Exception:
             None
+
+def mine(curr_block, mined_blocks_queue):
+    Block.mine(curr_block)
+    Block.print(curr_block)
+    mined_blocks_queue.put(curr_block)
 
 def main():
     # create socket for listening to register with name server
@@ -119,14 +131,16 @@ def main():
     # Queues for resource sharing
     peers_queue = Queue()
     transaction_queue = Queue()
-    blocks_queue = Queue()
+    received_blocks_queue = Queue()
+    mined_blocks_queue = Queue()
+    process_queue = Queue()
 
     # Create name server thread
     name_server_thread = threading.Thread(target=name_server, daemon=True, args=([listen_port, ip_addr, peers_queue]))
     name_server_thread.start()
 
     # Create listening thread
-    listener_thread = threading.Thread(target=listener, daemon=True, args=([listen_sock, transaction_queue, blocks_queue]))
+    listener_thread = threading.Thread(target=listener, daemon=True, args=([listen_sock, transaction_queue, received_blocks_queue, process_queue]))
     listener_thread.start()
 
     # Initialize peers and blockchain lists and transaction ledger
@@ -143,31 +157,24 @@ def main():
 
         if peers_queue.qsize() > 0:
             peers_list = peers_queue.get()
-            print(peers_list)
+            # print(peers_list)
             peers_queue.task_done()
-            # broadcast(peers_list) --> call this when we want to broadcast a block
         
-        if blocks_queue.qsize() > 0:
-            worker, block = blocks_queue.get()
+        if received_blocks_queue.qsize() > 0:
+            worker, block = received_blocks_queue.get()
             print('\nBlock from worker: {}'.format(worker))
-            print('Received Block:')
-            print('Index: {}'.format(block.index))
-            print('Transactions: {}'.format(block.transactions))
-            print('Prev Hash: {}'.format(block.header.prev_hash))
-            print('Hash: {}'.format(block.header.hash))
-            print('Timestamp: {}'.format(block.header.timestamp))
-            print('Nonce: {}\n'.format(block.header.nonce))
+            Block.print(block)
             
             try:
                 chains[worker].append(block)
             except Exception:
                 chains[worker] = [block]
             
-            pprint.pprint(chains)
+            # pprint.pprint(chains)
 
         if transaction_queue.qsize() > 0:
             msg = transaction_queue.get()
-            print(msg)
+            print('Txn: {}'.format(msg))
             transaction_queue.task_done()
 
             # Verify transaction before inserting into block - this is only local verification with respect to what worker knows
@@ -200,7 +207,17 @@ def main():
             if verified:
                 status = curr_block.add_transaction(msg)
                 if status == "Full":
-                    # Mine block
+                    
+                    # this is close to working, but for some reason the block isn't being recovered from the queue
+                    # p = multiprocessing.Process(target=mine, args=([curr_block, mined_blocks_queue]))
+                    # process_queue.put(p)
+                    # p.start()
+                    # if mined_blocks_queue.qsize() > 0:
+                    #     curr_block = mined_blocks_queue.get()
+                    #     mined_blocks_queue.task_done()
+                    # p.join()
+                    # Block.print(curr_block)
+                                        
                     Block.mine(curr_block)
                     
                     # Broadcast block to other peers
@@ -227,7 +244,6 @@ def main():
                     chains["local"] = local_blockchain
                     prev_block = curr_block
                     curr_block = Block.new_block(prev_block)
-
 
 if __name__ == "__main__":
     main()
