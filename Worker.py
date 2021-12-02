@@ -105,10 +105,11 @@ def listener(listen_sock, transaction_queue, received_blocks_queue, process_queu
 
                 received_blocks_queue.put((msg["Worker"], block))
 
-                # if process_queue.qsize() > 0:
-                #     process = process_queue.get()
-                #     process.terminate()
-                #     process_queue.task_done()
+                if process_queue.qsize() > 0:
+                    print('terminating')
+                    process = process_queue.get()
+                    process.terminate()
+                    process_queue.task_done()
 
                 continue
             elif msg["Type"] == "TXN":
@@ -116,10 +117,10 @@ def listener(listen_sock, transaction_queue, received_blocks_queue, process_queu
         except Exception:
             None
 
-def mine(curr_block, mined_blocks_queue):
+def mine(curr_block, return_dict):
     Block.mine(curr_block)
     Block.print(curr_block)
-    mined_blocks_queue.put(curr_block)
+    return_dict["block"] = curr_block 
 
 def main():
     # create socket for listening to register with name server
@@ -132,7 +133,6 @@ def main():
     peers_queue = Queue()
     transaction_queue = Queue()
     received_blocks_queue = Queue()
-    mined_blocks_queue = Queue()
     process_queue = Queue()
 
     # Create name server thread
@@ -170,7 +170,8 @@ def main():
             except Exception:
                 chains[worker] = [block]
             
-            # pprint.pprint(chains)
+            pprint.pprint(chains)
+            print('\n')
 
         if transaction_queue.qsize() > 0:
             msg = transaction_queue.get()
@@ -208,42 +209,48 @@ def main():
                 status = curr_block.add_transaction(msg)
                 if status == "Full":
                     
-                    # this is close to working, but for some reason the block isn't being recovered from the queue
-                    # p = multiprocessing.Process(target=mine, args=([curr_block, mined_blocks_queue]))
-                    # process_queue.put(p)
-                    # p.start()
-                    # if mined_blocks_queue.qsize() > 0:
-                    #     curr_block = mined_blocks_queue.get()
-                    #     mined_blocks_queue.task_done()
-                    # p.join()
-                    # Block.print(curr_block)
-                                        
-                    Block.mine(curr_block)
-                    
-                    # Broadcast block to other peers
-                    msg = {
-                        "Type": "BLOCK",
-                        "Worker": socket.gethostname(),
-                        "Block": {
-                            "index": curr_block.index,
-                            "transactions": curr_block.transactions,
-                            "header": {
-                                "prev_hash": curr_block.header.prev_hash,
-                                "hash": curr_block.header.hash,
-                                "timestamp": str(curr_block.header.timestamp),
-                                "nonce": curr_block.header.nonce
+                    # this is close to working, but process doesn't seem to be terminating
+                    manager = multiprocessing.Manager()
+                    return_dict = manager.dict()
+                    p = multiprocessing.Process(target=mine, args=([curr_block, return_dict]))
+                    process_queue.put(p)
+                    p.start()
+                    p.join()
+
+                    # try/catch block if process is interrupted
+                    try:
+                        curr_block = return_dict.values()[0]
+                        Block.print(curr_block)
+
+                        # Broadcast block to other peers
+                        msg = {
+                            "Type": "BLOCK",
+                            "Worker": socket.gethostname(),
+                            "Block": {
+                                "index": curr_block.index,
+                                "transactions": curr_block.transactions,
+                                "header": {
+                                    "prev_hash": curr_block.header.prev_hash,
+                                    "hash": curr_block.header.hash,
+                                    "timestamp": str(curr_block.header.timestamp),
+                                    "nonce": curr_block.header.nonce
+                                }
                             }
                         }
-                    }
-                    msg = json.dumps(msg)
-                    # print('msg to broadcast: {}'.format(msg))
-                    broadcast(peers_list, msg)
+                        msg = json.dumps(msg)
+                        # print('msg to broadcast: {}'.format(msg))
+                        broadcast(peers_list, msg)
 
-                    # Add to blockchain and create new block
-                    local_blockchain.append(curr_block)
-                    chains["local"] = local_blockchain
-                    prev_block = curr_block
-                    curr_block = Block.new_block(prev_block)
+                        # Add to blockchain and create new block
+                        local_blockchain.append(curr_block)
+                        chains["local"] = local_blockchain
+                        prev_block = curr_block
+                        curr_block = Block.new_block(prev_block)
 
+                    except Exception:
+                        None
+
+                    return_dict = {}                    
+                  
 if __name__ == "__main__":
     main()
