@@ -105,11 +105,32 @@ def listener(listen_sock, transaction_queue, received_blocks_queue, process_queu
 
                 received_blocks_queue.put((msg["Worker"], block))
 
-                if process_queue.qsize() > 0:
-                    print('terminating')
+                print(block.transactions[-1])
+
+                while process_queue.qsize() > 0:
+                    # Terminate all processes in queue: should only be one at this point
+                    print('terminating: ', process_queue.qsize())
                     process = process_queue.get()
                     process.terminate()
+                    print(process)
                     process_queue.task_done()
+
+                '''
+                # Trying to level transactions across chains
+
+                level_trans = False
+                while not level_trans:
+                    if transaction_queue.qsize() > 0:
+                        t = transaction_queue.get()
+                        if (t['User'] == block.transactions[-1]['User'] and t['Amount'] == block.transactions[-1]['Amount'] and t['Time'] == block.transactions[-1]['Time']) or (datetime.datetime.strptime(t['Time'], '%Y-%m-%d %H:%M:%S.%f') > datetime.datetime.strptime(block.transaction[-1]['Time'], '%Y-%m-%d %H:%M:%S.%f')):
+                            level_trans = True
+                            continue
+                        
+                        transaction_queue.task_done()
+                    else:
+                        level_trans = True
+
+                '''
 
                 continue
             elif msg["Type"] == "TXN":
@@ -164,16 +185,29 @@ def main():
             worker, block = received_blocks_queue.get()
             print('\nBlock from worker: {}'.format(worker))
             Block.print(block)
+
+            if block.index >= curr_block.index:
+                try:
+                    chains['local'].append(block)
+                except:
+                    chains['local'] = [block]
+                prev_block = block
+                curr_block = Block.new_block(prev_block)
             
             try:
                 chains[worker].append(block)
             except Exception:
                 chains[worker] = [block]
             
-            pprint.pprint(chains)
-            print('\n')
+            
+            for key in chains.keys():
+                print(key)
+                for block in chains[key]:
+                    Block.print(block)
+                print('\n')
 
-        if transaction_queue.qsize() > 0:
+
+        if transaction_queue.qsize() > 0 and received_blocks_queue.qsize() == 0 and len(curr_block.transactions) < 10:
             msg = transaction_queue.get()
             print('Txn: {}'.format(msg))
             transaction_queue.task_done()
@@ -214,8 +248,18 @@ def main():
                     return_dict = manager.dict()
                     p = multiprocessing.Process(target=mine, args=([curr_block, return_dict]))
                     process_queue.put(p)
+                    print('Starting Process ', p)
                     p.start()
                     p.join()
+
+                    # Dequeue process that solved the block
+                    if process_queue.qsize() > 0:
+                        p = process_queue.get()
+                        print(p)
+                        process_queue.task_done()
+                    
+                    
+                    print('passed join')
 
                     # try/catch block if process is interrupted
                     try:
@@ -247,10 +291,20 @@ def main():
                         prev_block = curr_block
                         curr_block = Block.new_block(prev_block)
 
+                        '''
+                        # Trying to level transactions across chains
+
+                        if transaction_queue.qsize() > 0:
+                            transaction_queue.get()
+                            transaction_queue.task_done()
+
+                        '''
+
                     except Exception:
                         None
+                        print('excepting')
 
-                    return_dict = {}                    
+                    #return_dict = {}                    
                   
 if __name__ == "__main__":
     main()
