@@ -33,7 +33,7 @@ def broadcast(peers_list):
 
 def get_peers(peers_queue):
         while True:
-            # Get peers from the catalog
+            # get peers from the catalog
             r = requests.get('http://catalog.cse.nd.edu:9097/query.json')
             address_book = json.JSONDecoder().decode(r.text)
             peers = []
@@ -49,21 +49,21 @@ def get_peers(peers_queue):
 
 
 def main():
-    # Start name server thread
+    # start name server thread
     peers_queue = queue.Queue()
     name_server_thread = threading.Thread(target=get_peers, daemon=True, args=([peers_queue]))
     name_server_thread.start()
 
     peers_list = []
 
-    # Send transactions in a loop while pulling new peers from thread
+    # send transactions in a loop while pulling new peers from thread
     while True:
         if peers_queue.qsize() > 0:
             peers_list = peers_queue.get()
             peers_queue.task_done()
 
         broadcast(peers_list)
-        time.sleep(1)
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     main()
